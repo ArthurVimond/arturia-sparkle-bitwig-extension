@@ -1,2 +1,2 @@
-# arturia-sparkle-bitwig-extension
-Bitwig extension for the Arturia SparkLE MIDI controller
+# Arturia SparkLE Bitwig extension
+Bitwig Studio extension for the Arturia SparkLE MIDI controller
