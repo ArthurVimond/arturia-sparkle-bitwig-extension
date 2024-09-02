@@ -16,7 +16,7 @@ class ArturiaSparkleExtensionDefinition : ControllerExtensionDefinition() {
     }
 
     override fun getVersion(): String {
-        return "0.1"
+        return "0.1.0"
     }
 
     override fun getId(): UUID {
