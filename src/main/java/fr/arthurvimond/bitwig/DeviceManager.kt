@@ -58,9 +58,8 @@ class DeviceManager(
 
     // Instrument Selector
     private val instrumentSelectorDevice: Device by inject(named(KoinQualifiers.InstrumentSelectorDevice))
-    private val nestedDrumMachineDevice: Device by inject(named(KoinQualifiers.InstrumentSelectorChainCursorDevice))
     private val instrumentSelectorChainSelector: ChainSelector by inject(named(KoinQualifiers.InstrumentSelectorChainSelector))
-    private val instrumentSelectorLayerBank: DeviceLayerBank = instrumentSelectorDevice.createLayerBank(32)
+    private val nestedDrumMachineDevice: Device by inject(named(KoinQualifiers.InstrumentSelectorActiveChainDevice))
 
     val nestedDrumPadBank: DrumPadBank = nestedDrumMachineDevice.createDrumPadBank(8)
     private val nestedDrumPadItems: List<DrumPad> = Sparkle.Note.Pads
@@ -247,8 +246,7 @@ class DeviceManager(
 
         instrumentSelectorChainSelector.activeChainIndex().markInterested()
         instrumentSelectorChainSelector.activeChainIndex().addValueObserver {
-            // Select the corresponding device
-            instrumentSelectorLayerBank.getItemAt(it).selectInEditor()
+            instrumentSelectorChainSelector.activeChain().selectInEditor()
         }
     }
 

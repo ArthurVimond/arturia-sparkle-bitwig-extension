@@ -50,9 +50,9 @@ fun mainModule(host: ControllerHost) = module {
     single<ChainSelector>(named(KoinQualifiers.InstrumentSelectorChainSelector)) {
         get<Device>(named(KoinQualifiers.InstrumentSelectorDevice)).createChainSelector()
     }
-    single<Device>(named(KoinQualifiers.InstrumentSelectorChainCursorDevice)) {
-        val cursorLayer = get<Device>(named(KoinQualifiers.InstrumentSelectorDevice)).createCursorLayer()
-        cursorLayer.createDeviceBank(1).getDevice(0)
+    single<Device>(named(KoinQualifiers.InstrumentSelectorActiveChainDevice)) {
+        get<ChainSelector>(named(KoinQualifiers.InstrumentSelectorChainSelector))
+            .activeChain().createDeviceBank(1).getDevice(0)
     }
 
     // DrumPadBank
@@ -92,7 +92,7 @@ object KoinQualifiers {
     const val DrumMachineDevice = "DrumMachineDevice"
     const val InstrumentSelectorDevice = "InstrumentSelectorDevice"
     const val InstrumentSelectorChainSelector = "InstrumentSelectorChainSelector"
-    const val InstrumentSelectorChainCursorDevice = "InstrumentSelectorCursorDevice"
+    const val InstrumentSelectorActiveChainDevice = "InstrumentSelectorCursorDevice"
     const val SamplerDeviceMatcher = "SamplerDeviceMatcher"
     const val EKickDeviceMatcher = "EKickDeviceMatcher"
     const val ESnareDeviceMatcher = "ESnareDeviceMatcher"
