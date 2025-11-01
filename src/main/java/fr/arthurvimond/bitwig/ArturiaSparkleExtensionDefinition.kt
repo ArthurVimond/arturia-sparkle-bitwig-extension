@@ -16,7 +16,7 @@ class ArturiaSparkleExtensionDefinition : ControllerExtensionDefinition() {
     }
 
     override fun getVersion(): String {
-        return "0.1.0"
+        return "0.2.0"
     }
 
     override fun getId(): UUID {
@@ -32,7 +32,7 @@ class ArturiaSparkleExtensionDefinition : ControllerExtensionDefinition() {
     }
 
     override fun getRequiredAPIVersion(): Int {
-        return 16
+        return 24
     }
 
     override fun getNumMidiInPorts(): Int {

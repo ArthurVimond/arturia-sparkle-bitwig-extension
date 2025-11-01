@@ -6,7 +6,7 @@
     <artifactId>arturia-sparkle</artifactId>
     <packaging>jar</packaging>
     <name>Arturia-SparkLE</name>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
 
     <properties>
         <kotlin.version>1.9.21</kotlin.version>
@@ -24,7 +24,7 @@
         <dependency>
             <groupId>com.bitwig</groupId>
             <artifactId>extension-api</artifactId>
-            <version>18</version>
+            <version>24</version>
         </dependency>
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
@@ -124,7 +124,7 @@
                         </goals>
                         <configuration>
 							<sourceFile>${project.build.directory}/${project.build.finalName}-jar-with-dependencies.jar</sourceFile>
-                            <destinationFile>${bitwig.extension.directory}/Arturia-SparkLE.bwextension</destinationFile>
+                            <destinationFile>${bitwigExtensionsDirectory}/Arturia-SparkLE.bwextension</destinationFile>
                         </configuration>
                     </execution>
                 </executions>
