@@ -57,22 +57,7 @@ fun mainModule(host: ControllerHost) = module {
 
     // DrumPadBank
     single<DrumPadBank> { get<Device>(named(KoinQualifiers.DrumMachineDevice)).createDrumPadBank(8) }
-    // E-Kick
-    single<DeviceMatcher>(named(KoinQualifiers.EKickDeviceMatcher)) {
-        host.createBitwigDeviceMatcher(Bitwig.Instrument.EKick)
-    }
-    // E-Snare
-    single<DeviceMatcher>(named(KoinQualifiers.ESnareDeviceMatcher)) {
-        host.createBitwigDeviceMatcher(Bitwig.Instrument.ESnare)
-    }
-    // E-Clap
-    single<DeviceMatcher>(named(KoinQualifiers.EClapDeviceMatcher)) {
-        host.createBitwigDeviceMatcher(Bitwig.Instrument.EClap)
-    }
-    // E-Hat
-    single<DeviceMatcher>(named(KoinQualifiers.EHatDeviceMatcher)) {
-        host.createBitwigDeviceMatcher(Bitwig.Instrument.EHat)
-    }
+
     // Sampler
     single<DeviceMatcher>(named(KoinQualifiers.SamplerDeviceMatcher)) {
         host.createBitwigDeviceMatcher(Bitwig.Instrument.Sampler)
@@ -94,10 +79,6 @@ object KoinQualifiers {
     const val InstrumentSelectorChainSelector = "InstrumentSelectorChainSelector"
     const val InstrumentSelectorActiveChainDevice = "InstrumentSelectorCursorDevice"
     const val SamplerDeviceMatcher = "SamplerDeviceMatcher"
-    const val EKickDeviceMatcher = "EKickDeviceMatcher"
-    const val ESnareDeviceMatcher = "ESnareDeviceMatcher"
-    const val EClapDeviceMatcher = "EClapDeviceMatcher"
-    const val EHatDeviceMatcher = "EHatDeviceMatcher"
 
     // Audio effects
     const val FilterDeviceMatcher = "FilterDeviceMatcher"

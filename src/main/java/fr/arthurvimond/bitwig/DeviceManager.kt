@@ -17,8 +17,10 @@ import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.koin.core.qualifier.named
+import java.util.*
 
 class DeviceManager(
+    private val host: ControllerHost,
     private val state: State,
     private val drumPadBank: DrumPadBank,
     private val midiOut: MidiOut,
@@ -28,10 +30,72 @@ class DeviceManager(
     private val scope = CoroutineScope(Dispatchers.Default)
 
     private val samplerDeviceMatcher: DeviceMatcher by inject(named(KoinQualifiers.SamplerDeviceMatcher))
-    private val eKickDeviceMatcher: DeviceMatcher by inject(named(KoinQualifiers.EKickDeviceMatcher))
-    private val eSnareDeviceMatcher: DeviceMatcher by inject(named(KoinQualifiers.ESnareDeviceMatcher))
-    private val eClapDeviceMatcher: DeviceMatcher by inject(named(KoinQualifiers.EClapDeviceMatcher))
-    private val eHatDeviceMatcher: DeviceMatcher by inject(named(KoinQualifiers.EHatDeviceMatcher))
+
+    // V0 drums
+    private val v0DrumPartDeviceIds: List<UUID> = listOf(
+        Bitwig.Instrument.V0Kick,
+        Bitwig.Instrument.V0ZapKick,
+        Bitwig.Instrument.V0Snare,
+        Bitwig.Instrument.V0Hat,
+        Bitwig.Instrument.V0Cymbal,
+        Bitwig.Instrument.V0Tom,
+    )
+
+    // V1 drums
+    private val v1DrumPartDeviceIds: List<UUID> = listOf(
+        Bitwig.Instrument.V1Kick,
+        Bitwig.Instrument.V1Snare,
+        Bitwig.Instrument.V1Clap,
+        Bitwig.Instrument.V1Hat,
+        Bitwig.Instrument.V1Tom,
+        Bitwig.Instrument.V1Cowbell,
+    )
+
+    // V8 drums
+    private val v8DrumPartDeviceIds: List<UUID> = listOf(
+        Bitwig.Instrument.V8Kick,
+        Bitwig.Instrument.V8Snare,
+        Bitwig.Instrument.V8Clap,
+        Bitwig.Instrument.V8Hat,
+        Bitwig.Instrument.V8Maracas,
+        Bitwig.Instrument.V8Cymbal,
+        Bitwig.Instrument.V8Tom,
+        Bitwig.Instrument.V8Claves,
+        Bitwig.Instrument.V8Cowbell,
+    )
+
+    // V9 drums
+    private val v9DrumPartDeviceIds: List<UUID> = listOf(
+        Bitwig.Instrument.V9Kick,
+        Bitwig.Instrument.V9Snare,
+        Bitwig.Instrument.V9Clap,
+        Bitwig.Instrument.V9Tom,
+        Bitwig.Instrument.V9HatClosed,
+        Bitwig.Instrument.V9HatOpen,
+        Bitwig.Instrument.V9Ride,
+        Bitwig.Instrument.V9Crash,
+        Bitwig.Instrument.V9Rimshot,
+    )
+
+    // V0 drums
+    private val v0DrumPartDeviceMatchers: Map<UUID, DeviceMatcher> = v0DrumPartDeviceIds
+        .mapIndexed { index, deviceId -> deviceId to getDeviceMatcher(deviceId) }
+        .toMap()
+
+    // V1 drums
+    private val v1DrumPartDeviceMatchers: Map<UUID, DeviceMatcher> = v1DrumPartDeviceIds
+        .mapIndexed { index, deviceId -> deviceId to getDeviceMatcher(deviceId) }
+        .toMap()
+
+    // V8 drums
+    private val v8DrumPartDeviceMatchers: Map<UUID, DeviceMatcher> = v8DrumPartDeviceIds
+        .mapIndexed { index, deviceId -> deviceId to getDeviceMatcher(deviceId) }
+        .toMap()
+
+    // V9 drums
+    private val v9DrumPartDeviceMatchers: Map<UUID, DeviceMatcher> = v9DrumPartDeviceIds
+        .mapIndexed { index, deviceId -> deviceId to getDeviceMatcher(deviceId) }
+        .toMap()
 
     private val filterDeviceMatcher: DeviceMatcher by inject(named(KoinQualifiers.FilterDeviceMatcher))
 
@@ -91,51 +155,40 @@ class DeviceManager(
 
     // Top level Drum machine sampler device
     private val rootSamplerDevices: List<Device> = rootDrumPadItems.map { item ->
-        val deviceBank = item.createDeviceBank(1)
-        deviceBank.setDeviceMatcher(samplerDeviceMatcher)
-        val device = deviceBank.getItemAt(0)
-        device.exists().markInterested()
-        device
+        getDeviceForDrumPad(drumPad = item, deviceMatcher = samplerDeviceMatcher)
     }
 
     // Nested in InstrumentSelector
     private val nestedSamplerDevices: List<Device> = nestedDrumPadItems.map { item ->
-        val deviceBank = item.createDeviceBank(1)
-        deviceBank.setDeviceMatcher(samplerDeviceMatcher)
-        val device = deviceBank.getItemAt(0)
-        device.exists().markInterested()
-        device
-    }
-    private val nestedEKickDevices: List<Device> = nestedDrumPadItems.map { item ->
-        val deviceBank = item.createDeviceBank(1)
-        deviceBank.setDeviceMatcher(eKickDeviceMatcher)
-        val device = deviceBank.getItemAt(0)
-        device.exists().markInterested()
-        device
+        getDeviceForDrumPad(drumPad = item, deviceMatcher = samplerDeviceMatcher)
     }
 
-    private val nestedESnareDevices: List<Device> = nestedDrumPadItems.map { item ->
-        val deviceBank = item.createDeviceBank(1)
-        deviceBank.setDeviceMatcher(eSnareDeviceMatcher)
-        val device = deviceBank.getItemAt(0)
-        device.exists().markInterested()
-        device
+    // V1 drums
+    private val nestedV0DrumPartDevices: List<Map<UUID, Device>> = nestedDrumPadItems.map { item ->
+        v0DrumPartDeviceMatchers.mapValues { (deviceId, deviceMatcher) ->
+            getDeviceForDrumPad(drumPad = item, deviceMatcher = deviceMatcher)
+        }
     }
 
-    private val nestedEClapDevices: List<Device> = nestedDrumPadItems.map { item ->
-        val deviceBank = item.createDeviceBank(1)
-        deviceBank.setDeviceMatcher(eClapDeviceMatcher)
-        val device = deviceBank.getItemAt(0)
-        device.exists().markInterested()
-        device
+    // V1 drums
+    private val nestedV1DrumPartDevices: List<Map<UUID, Device>> = nestedDrumPadItems.map { item ->
+        v1DrumPartDeviceMatchers.mapValues { (deviceId, deviceMatcher) ->
+            getDeviceForDrumPad(drumPad = item, deviceMatcher = deviceMatcher)
+        }
     }
 
-    private val nestedEHatDevices: List<Device> = nestedDrumPadItems.map { item ->
-        val deviceBank = item.createDeviceBank(1)
-        deviceBank.setDeviceMatcher(eHatDeviceMatcher)
-        val device = deviceBank.getItemAt(0)
-        device.exists().markInterested()
-        device
+    // V8 drums
+    private val nestedV8DrumPartDevices: List<Map<UUID, Device>> = nestedDrumPadItems.map { item ->
+        v8DrumPartDeviceMatchers.mapValues { (deviceId, deviceMatcher) ->
+            getDeviceForDrumPad(drumPad = item, deviceMatcher = deviceMatcher)
+        }
+    }
+
+    // V9 drums
+    private val nestedV9DrumPartDevices: List<Map<UUID, Device>> = nestedDrumPadItems.map { item ->
+        v9DrumPartDeviceMatchers.mapValues { (deviceId, deviceMatcher) ->
+            getDeviceForDrumPad(drumPad = item, deviceMatcher = deviceMatcher)
+        }
     }
 
     private val nestedSamplerDeviceControlPage: List<RemoteControlsPage> = nestedSamplerDevices.map { device ->
@@ -148,51 +201,40 @@ class DeviceManager(
     }
 
     private val nestedFilterDevices: List<Device> = nestedDrumPadItems.map { item ->
-        val deviceBank = item.createDeviceBank(1)
-        deviceBank.setDeviceMatcher(filterDeviceMatcher)
-        val device = deviceBank.getItemAt(0)
-        device.exists().markInterested()
-        device
+        getDeviceForDrumPad(drumPad = item, deviceMatcher = filterDeviceMatcher)
     }
 
-    private val rootEKickDevices: List<Device> = rootDrumPadItems.map { item ->
-        val deviceBank = item.createDeviceBank(1)
-        deviceBank.setDeviceMatcher(eKickDeviceMatcher)
-        val device = deviceBank.getItemAt(0)
-        device.exists().markInterested()
-        device
+    // V0 drums
+    private val rootV0DrumPartDevices: List<Map<UUID, Device>> = rootDrumPadItems.map { item ->
+        v0DrumPartDeviceMatchers.mapValues { (deviceId, deviceMatcher) ->
+            getDeviceForDrumPad(drumPad = item, deviceMatcher = deviceMatcher)
+        }
     }
 
-    private val rootESnareDevices: List<Device> = rootDrumPadItems.map { item ->
-        val deviceBank = item.createDeviceBank(1)
-        deviceBank.setDeviceMatcher(eSnareDeviceMatcher)
-        val device = deviceBank.getItemAt(0)
-        device.exists().markInterested()
-        device
+    // V1 drums
+    private val rootV1DrumPartDevices: List<Map<UUID, Device>> = rootDrumPadItems.map { item ->
+        v1DrumPartDeviceMatchers.mapValues { (deviceId, deviceMatcher) ->
+            getDeviceForDrumPad(drumPad = item, deviceMatcher = deviceMatcher)
+        }
     }
 
-    private val rootEClapDevices: List<Device> = rootDrumPadItems.map { item ->
-        val deviceBank = item.createDeviceBank(1)
-        deviceBank.setDeviceMatcher(eClapDeviceMatcher)
-        val device = deviceBank.getItemAt(0)
-        device.exists().markInterested()
-        device
+    // V8 drums
+    private val rootV8DrumPartDevices: List<Map<UUID, Device>> = rootDrumPadItems.map { item ->
+        v8DrumPartDeviceMatchers.mapValues { (deviceId, deviceMatcher) ->
+            getDeviceForDrumPad(drumPad = item, deviceMatcher = deviceMatcher)
+        }
     }
 
-    private val rootEHatDevices: List<Device> = rootDrumPadItems.map { item ->
-        val deviceBank = item.createDeviceBank(1)
-        deviceBank.setDeviceMatcher(eHatDeviceMatcher)
-        val device = deviceBank.getItemAt(0)
-        device.exists().markInterested()
-        device
+    // V9 drums
+    private val rootV9DrumPartDevices: List<Map<UUID, Device>> = rootDrumPadItems.map { item ->
+        v9DrumPartDeviceMatchers.mapValues { (deviceId, deviceMatcher) ->
+            getDeviceForDrumPad(drumPad = item, deviceMatcher = deviceMatcher)
+        }
     }
 
+    // Filter
     private val rootFilterDevices: List<Device> = rootDrumPadItems.map { item ->
-        val deviceBank = item.createDeviceBank(1)
-        deviceBank.setDeviceMatcher(filterDeviceMatcher)
-        val device = deviceBank.getItemAt(0)
-        device.exists().markInterested()
-        device
+        getDeviceForDrumPad(drumPad = item, deviceMatcher = filterDeviceMatcher)
     }
 
     private val rootSamplerDeviceControlPage: List<RemoteControlsPage> = rootSamplerDevices.map { device ->
@@ -211,11 +253,28 @@ class DeviceManager(
         param.value().markInterested()
         param
     }
-    private val rootEKickDecayParams: List<Parameter> = rootEKickDevices.map { it.toEKickDecayParam() }
-    private val rootESnareDecayParams: List<Parameter> = rootESnareDevices.map { it.toESnareDecayParam() }
-    private val rootEClapDecayParams: List<Parameter> = rootEClapDevices.map { it.toEClapDecayParam() }
-    private val rootEHatDecayParams: List<Parameter> = rootEHatDevices.map { it.toEHatDecayParam() }
 
+    // V0 drums
+    private val rootV0DrumPartDecayParams: List<Map<UUID, Parameter>> = rootV0DrumPartDevices.map { map ->
+        map.mapValues { (deviceId, device) -> device.toV0DrumDecayParam(deviceId) }
+    }
+
+    // V1 drums
+    private val rootV1DrumPartDecayParams: List<Map<UUID, Parameter>> = rootV1DrumPartDevices.map { map ->
+        map.mapValues { (deviceId, device) -> device.toV1DrumDecayParam(deviceId) }
+    }
+
+    // V8 drums
+    private val rootV8DrumPartDecayParams: List<Map<UUID, Parameter>> = rootV8DrumPartDevices.map { map ->
+        map.mapValues { (deviceId, device) -> device.toV8DrumDecayParam(deviceId) }
+    }
+
+    // V9 drums
+    private val rootV9DrumPartDecayParams: List<Map<UUID, Parameter>> = rootV9DrumPartDevices.map { map ->
+        map.mapValues { (deviceId, device) -> device.toV9DrumDecayParam(deviceId) }
+    }
+
+    // Filter
     private val rootFilterTypeParams: List<Parameter> = rootFilterDevices.map { it.toFilterTypeParam() }
     private val rootFilterCutoffParams: List<Parameter> = rootFilterDevices.map { it.toFilterCutoffParam() }
     private val rootFilterResonanceParams: List<Parameter> = rootFilterDevices.map { it.toFilterResonanceParam() }
@@ -227,11 +286,28 @@ class DeviceManager(
         param.value().markInterested()
         param
     }
-    private val nestedEKickDecayParams: List<Parameter> = nestedEKickDevices.map { it.toEKickDecayParam() }
-    private val nestedESnareDecayParams: List<Parameter> = nestedESnareDevices.map { it.toESnareDecayParam() }
-    private val nestedEClapDecayParams: List<Parameter> = nestedEClapDevices.map { it.toEClapDecayParam() }
-    private val nestedEHatDecayParams: List<Parameter> = nestedEHatDevices.map { it.toEHatDecayParam() }
 
+    // V0 drums
+    private val nestedV0DrumPartDecayParams: List<Map<UUID, Parameter>> = nestedV0DrumPartDevices.map { map ->
+        map.mapValues { (deviceId, device) -> device.toV0DrumDecayParam(deviceId) }
+    }
+
+    // V1 drums
+    private val nestedV1DrumPartDecayParams: List<Map<UUID, Parameter>> = nestedV1DrumPartDevices.map { map ->
+        map.mapValues { (deviceId, device) -> device.toV1DrumDecayParam(deviceId) }
+    }
+
+    // V8 drums
+    private val nestedV8DrumPartDecayParams: List<Map<UUID, Parameter>> = nestedV8DrumPartDevices.map { map ->
+        map.mapValues { (deviceId, device) -> device.toV8DrumDecayParam(deviceId) }
+    }
+
+    // V9 drums
+    private val nestedV9DrumPartDecayParams: List<Map<UUID, Parameter>> = nestedV9DrumPartDevices.map { map ->
+        map.mapValues { (deviceId, device) -> device.toV9DrumDecayParam(deviceId) }
+    }
+
+    // Filter
     private val nestedFilterTypeParams: List<Parameter> = nestedFilterDevices.map { it.toFilterTypeParam() }
     private val nestedFilterCutoffParams: List<Parameter> = nestedFilterDevices.map { it.toFilterCutoffParam() }
     private val nestedFilterResonanceParams: List<Parameter> = nestedFilterDevices.map { it.toFilterResonanceParam() }
@@ -289,9 +365,9 @@ class DeviceManager(
 
     fun filterDeviceExists(index: Int): Boolean {
         return if (isInstrumentSelector) {
-            return nestedFilterDevices[index].exists().get()
+            nestedFilterDevices[index].exists().get()
         } else {
-            return rootFilterDevices[index].exists().get()
+            rootFilterDevices[index].exists().get()
         }
     }
 
@@ -379,19 +455,36 @@ class DeviceManager(
             val releaseParamName = releaseParameter.name().get()
 
             // Check for corresponding device
-            val eKickDecayParam = nestedEKickDecayParams[selectedPad]
-            val eSnareDecayParam = nestedESnareDecayParams[selectedPad]
-            val eClapDecayParam = nestedEClapDecayParams[selectedPad]
-            val eHatDecayParam = nestedEHatDecayParams[selectedPad]
-            val isEKickDevice = eKickDecayParam.exists().get()
-            val isESnareDevice = eSnareDecayParam.exists().get()
-            val isEClapDevice = eClapDecayParam.exists().get()
-            val isEHatDevice = eHatDecayParam.exists().get()
+
+            // V0 drums
+            val v0DrumPartDecayParamValue: SettableRangedValue? = nestedV0DrumPartDecayParams[selectedPad]
+                .filter { (_, param) -> param.exists().get() }
+                .map { it.value.value() }
+                .firstOrNull()
+
+            // V1 drums
+            val v1DrumPartDecayParamValue: SettableRangedValue? = nestedV1DrumPartDecayParams[selectedPad]
+                .filter { (_, param) -> param.exists().get() }
+                .map { it.value.value() }
+                .firstOrNull()
+
+            // V8 drums
+            val v8DrumPartDecayParamValue: SettableRangedValue? = nestedV8DrumPartDecayParams[selectedPad]
+                .filter { (_, param) -> param.exists().get() }
+                .map { it.value.value() }
+                .firstOrNull()
+
+            // V9 drums
+            val v9DrumPartDecayParamValue: SettableRangedValue? = nestedV9DrumPartDecayParams[selectedPad]
+                .filter { (_, param) -> param.exists().get() }
+                .map { it.value.value() }
+                .firstOrNull()
+
             val value: SettableRangedValue = when {
-                isEKickDevice -> eKickDecayParam.value()
-                isESnareDevice -> eSnareDecayParam.value()
-                isEClapDevice -> eClapDecayParam.value()
-                isEHatDevice -> eHatDecayParam.value()
+                v0DrumPartDecayParamValue != null -> v0DrumPartDecayParamValue
+                v1DrumPartDecayParamValue != null -> v1DrumPartDecayParamValue
+                v8DrumPartDecayParamValue != null -> v8DrumPartDecayParamValue
+                v9DrumPartDecayParamValue != null -> v9DrumPartDecayParamValue
                 else -> nestedSamplerDecayParams[selectedPad].value()
             }
             value.inc(cc.value - 64, 64)
@@ -408,19 +501,36 @@ class DeviceManager(
             val releaseParamName = releaseParameter.name().get()
 
             // Check for corresponding device
-            val eKickDecayParam = rootEKickDecayParams[selectedPad]
-            val eSnareDecayParam = rootESnareDecayParams[selectedPad]
-            val eClapDecayParam = rootEClapDecayParams[selectedPad]
-            val eHatDecayParam = rootEHatDecayParams[selectedPad]
-            val isEKickDevice = eKickDecayParam.exists().get()
-            val isESnareDevice = eSnareDecayParam.exists().get()
-            val isEClapDevice = eClapDecayParam.exists().get()
-            val isEHatDevice = eHatDecayParam.exists().get()
+
+            // V0 drums
+            val v0DrumPartDecayParamValue: SettableRangedValue? = rootV0DrumPartDecayParams[selectedPad]
+                .filter { (_, param) -> param.exists().get() }
+                .map { it.value.value() }
+                .firstOrNull()
+
+            // V1 drums
+            val v1DrumPartDecayParamValue: SettableRangedValue? = rootV1DrumPartDecayParams[selectedPad]
+                .filter { (_, param) -> param.exists().get() }
+                .map { it.value.value() }
+                .firstOrNull()
+
+            // V8 drums
+            val v8DrumPartDecayParamValue: SettableRangedValue? = rootV8DrumPartDecayParams[selectedPad]
+                .filter { (_, param) -> param.exists().get() }
+                .map { it.value.value() }
+                .firstOrNull()
+
+            // V9 drums
+            val v9DrumPartDecayParamValue: SettableRangedValue? = rootV9DrumPartDecayParams[selectedPad]
+                .filter { (_, param) -> param.exists().get() }
+                .map { it.value.value() }
+                .firstOrNull()
+
             val value: SettableRangedValue = when {
-                isEKickDevice -> eKickDecayParam.value()
-                isESnareDevice -> eSnareDecayParam.value()
-                isEClapDevice -> eClapDecayParam.value()
-                isEHatDevice -> eHatDecayParam.value()
+                v0DrumPartDecayParamValue != null -> v0DrumPartDecayParamValue
+                v1DrumPartDecayParamValue != null -> v1DrumPartDecayParamValue
+                v8DrumPartDecayParamValue != null -> v8DrumPartDecayParamValue
+                v9DrumPartDecayParamValue != null -> v9DrumPartDecayParamValue
                 else -> rootSamplerDecayParams[selectedPad].value()
             }
             value.inc(cc.value - 64, 64)
@@ -462,6 +572,16 @@ class DeviceManager(
         params[selectedPad].value().inc(cc.value - 64, 64)
     }
 
+    private fun getDeviceMatcher(deviceId: UUID): DeviceMatcher = host.createBitwigDeviceMatcher(deviceId)
+
+    private fun getDeviceForDrumPad(drumPad: DrumPad, deviceMatcher: DeviceMatcher): Device {
+        val deviceBank = drumPad.createDeviceBank(1)
+        deviceBank.setDeviceMatcher(deviceMatcher)
+        val device = deviceBank.getItemAt(0)
+        device.exists().markInterested()
+        return device
+    }
+
     private fun Device.toSamplerModeParam(): Parameter {
         val specificSamplerDevice = createSpecificBitwigDevice(Bitwig.Instrument.Sampler)
         return specificSamplerDevice.createParameter("MODE")
@@ -482,34 +602,41 @@ class DeviceManager(
         return specificSamplerDevice.createParameter("SPEED")
     }
 
-    private fun Device.toEKickDecayParam(): Parameter {
-        val specificDevice = createSpecificBitwigDevice(Bitwig.Instrument.EKick)
+    private fun Device.toV0DrumDecayParam(deviceId: UUID): Parameter {
+        val paramId = if (deviceId == Bitwig.Instrument.V0ZapKick) "SWEEP_DECAY" else "DECAY"
+        val specificDevice = createSpecificBitwigDevice(deviceId)
+        val parameter = specificDevice.createParameter(paramId)
+        parameter.exists().markInterested()
+        return parameter
+    }
+
+    private fun Device.toV1DrumDecayParam(deviceId: UUID): Parameter {
+        val paramId = when (deviceId) {
+            Bitwig.Instrument.V1Snare -> "OSC_1_DECAY"
+            Bitwig.Instrument.V1Cowbell -> "AEG_DECAY"
+            else -> "DECAY"
+        }
+        val specificDevice = createSpecificBitwigDevice(deviceId)
+        val parameter = specificDevice.createParameter(paramId)
+        parameter.exists().markInterested()
+        return parameter
+    }
+
+    private fun Device.toV8DrumDecayParam(deviceId: UUID): Parameter {
+        val specificDevice = createSpecificBitwigDevice(deviceId)
         val parameter = specificDevice.createParameter("DECAY")
         parameter.exists().markInterested()
         return parameter
     }
 
-    private fun Device.toESnareDecayParam(): Parameter {
-        val specificDevice = createSpecificBitwigDevice(Bitwig.Instrument.ESnare)
-        val parameter = specificDevice.createParameter("OSC_1_DECAY")
-        parameter.exists().markInterested()
-        return parameter
-    }
-
-    private fun Device.toEClapDecayParam(): Parameter {
-        val specificDevice = createSpecificBitwigDevice(Bitwig.Instrument.EClap)
+    private fun Device.toV9DrumDecayParam(deviceId: UUID): Parameter {
+        val specificDevice = createSpecificBitwigDevice(deviceId)
         val parameter = specificDevice.createParameter("DECAY")
         parameter.exists().markInterested()
         return parameter
     }
 
-    private fun Device.toEHatDecayParam(): Parameter {
-        val specificDevice = createSpecificBitwigDevice(Bitwig.Instrument.EHat)
-        val parameter = specificDevice.createParameter("DECAY")
-        parameter.exists().markInterested()
-        return parameter
-    }
-
+    // Filter
     private fun Device.toFilterTypeParam(): Parameter {
         val specificDevice = createSpecificBitwigDevice(Bitwig.AudioEffect.Filter)
         val parameter = specificDevice.createParameter("FILTER_TYPE")
